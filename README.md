@@ -1,14 +1,26 @@
-# monit_manager
-monit 管理工具
+# monit 管理工具
 
-[monit 使用手册](https://billwang139967.gitbooks.io/op_practice_book/content/doc/monitor/monit.html)
+<!-- vim-markdown-toc GFM -->
+* [使用手册](#使用手册)
+* [版本](#版本)
+* [相关内容](#相关内容)
+* [参加步骤](#参加步骤)
 
-原理性内容会往 wiki 上整理
-[wiki](https://github.com/BillWang139967/monit_manager/wiki)
+<!-- vim-markdown-toc -->
 
-## version
+## 使用手册
 
-* v0.1，2017-05-16 init: 可以获取 monit 状态信息并转换为 json
+[monit_manager 使用手册](https://github.com/BillWang139967/monit_manager/wiki)
+
+## 版本
+
+* v1.0.2，2017-08-24 update: (1) 程序访问 monit web 方式从 requests 换为 urllib2,(2) 更新 xmltodict 库，(3) 增加命令行操作模式
+* v1.0.1，2017-05-16 init: 可以获取 monit 状态信息并转换为 json
+
+## 相关内容
+
+> * [monit 使用](https://billwang139967.gitbooks.io/op_practice_book/content/doc/monitor/monit.html)
+> * [xml 转换为 dict 库](https://github.com/BillWang139967/MyPythonLib/tree/master/My_lib/xmltodict)
 
 ## 参加步骤
 

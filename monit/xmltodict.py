@@ -80,7 +80,7 @@ class _DictSAXHandler(object):
         i = full_name.rfind(self.namespace_separator)
         if i == -1:
             return full_name
-        namespace, name = full_name[:i], full_name[i+1:]
+        namespace, name = full_name[:i], full_name[i + 1:]
         short_namespace = self.namespaces.get(namespace, namespace)
         if not short_namespace:
             return name
@@ -107,7 +107,7 @@ class _DictSAXHandler(object):
             if self.xml_attribs:
                 attr_entries = []
                 for key, value in attrs.items():
-                    key = self.attr_prefix+self._build_name(key)
+                    key = self.attr_prefix + self._build_name(key)
                     if self.postprocessor:
                         entry = self.postprocessor(self.path, key, value)
                     else:
@@ -322,7 +322,8 @@ def parse(xml_input, encoding=None, expat=expat, process_namespaces=False,
             # For CPython / expat parser.
             # Anything not handled ends up here and entities aren't expanded.
             parser.DefaultHandler = lambda x: None
-            # Expects an integer return; zero means failure -> expat.ExpatError.
+            # Expects an integer return; zero means failure ->
+            # expat.ExpatError.
             parser.ExternalEntityRefHandler = lambda *x: 1
     if hasattr(xml_input, 'read'):
         parser.ParseFile(xml_input)
@@ -403,7 +404,7 @@ def _emit(key, value, content_handler,
             content_handler.ignorableWhitespace(newl)
         for child_key, child_value in children:
             _emit(child_key, child_value, content_handler,
-                  attr_prefix, cdata_key, depth+1, preprocessor,
+                  attr_prefix, cdata_key, depth + 1, preprocessor,
                   pretty, newl, indent, namespaces=namespaces,
                   namespace_separator=namespace_separator)
         if cdata is not None:
@@ -457,9 +458,10 @@ def unparse(input_dict, output=None, encoding='utf-8', full_document=True,
             pass
         return value
 
+
 if __name__ == '__main__':  # pragma: no cover
     import json
-    ceshi_xml='''
+    ceshi_xml = '''
   <mydocument has="an attribute">
     <and>
       <many>elements</many>
@@ -471,7 +473,7 @@ if __name__ == '__main__':  # pragma: no cover
   </mydocument>
     '''
     root_info = parse(str(ceshi_xml))
-    print json.dumps(root_info,indent=4)
+    print json.dumps(root_info, indent=4)
     print "################################################"
 
-    print unparse(root_info,pretty=True,encoding='GBK')
+    print unparse(root_info, pretty=True, encoding='GBK')

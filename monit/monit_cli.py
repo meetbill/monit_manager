@@ -10,12 +10,14 @@
 
 """
 import urllib2
-import xmltodict
+import monit.xmltodict
 import json
 import logging
 
 
-class Monit():
+class Monit(object):
+    """Monit
+    """
     def __init__(self, host='localhost', port=2812,
                  username=None, password='', https=False):
         """
@@ -72,7 +74,7 @@ class Monit():
             return result
         status_xml = response.read().split('?>')[1]
 
-        result = xmltodict.parse(status_xml)
+        result = monit.xmltodict.parse(status_xml)
         return result
 
 

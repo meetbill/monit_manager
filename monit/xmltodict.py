@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf8
 "Makes working with XML feel like you are working with JSON"
 
 try:
@@ -32,25 +33,42 @@ except NameError:  # pragma no cover
     _unicode = str
 
 __author__ = 'Martin Blech'
-__version__ = '0.11.0'
+__version__ = '0.12.0'
 __license__ = 'MIT'
 
 
 class ParsingInterrupted(Exception):
+    """ParsingInterrupted Exception
+    """
     pass
 
 
 class _DictSAXHandler(object):
+    """ SAX handler
+     Attributes:
+        path:
+        stack:
+        item_depth:
+            If `item_depth` is `0`, the function returns a dictionary for the root
+            element (default behavior). Otherwise, it calls `item_callback` every time
+            an item at the specified depth is found and returns `None` in the end
+            (streaming mode).
+        xml_attribs:
+            If `xml_attribs` is `True`, element attributes are put in the dictionary
+            among regular child elements, using `@` as a prefix to avoid collisions. If
+            set to `False`, they are just ignored.
+    """
+
     def __init__(self,
                  item_depth=0,
-                 item_callback=lambda *args: True,
+                 item_callback=None,
                  xml_attribs=True,
                  attr_prefix='@',
                  cdata_key='#text',
                  force_cdata=False,
                  cdata_separator='',
                  postprocessor=None,
-                 dict_constructor=OrderedDict,
+                 dict_constructor=None,
                  strip_whitespace=True,
                  namespace_separator=':',
                  namespaces=None,
@@ -58,15 +76,20 @@ class _DictSAXHandler(object):
         self.path = []
         self.stack = []
         self.data = []
+        # self.item result: OrderedDict
         self.item = None
         self.item_depth = item_depth
         self.xml_attribs = xml_attribs
+        if item_callback is None:
+            item_callback = lambda *args: True
         self.item_callback = item_callback
         self.attr_prefix = attr_prefix
         self.cdata_key = cdata_key
         self.force_cdata = force_cdata
         self.cdata_separator = cdata_separator
         self.postprocessor = postprocessor
+        if dict_constructor is None:
+            dict_constructor = OrderedDict
         self.dict_constructor = dict_constructor
         self.strip_whitespace = strip_whitespace
         self.namespace_separator = namespace_separator
@@ -93,9 +116,16 @@ class _DictSAXHandler(object):
         return self.dict_constructor(zip(attrs[0::2], attrs[1::2]))
 
     def startNamespaceDecl(self, prefix, uri):
+        """set startNamespaceDecl
+        """
         self.namespace_declarations[prefix or ''] = uri
 
     def startElement(self, full_name, attrs):
+        """set startElement
+        Args:
+            full_name: 标签名字，
+            attrs: 标签的属性值
+        """
         name = self._build_name(full_name)
         attrs = self._attrs_to_dict(attrs)
         if attrs and self.namespace_declarations:
@@ -121,6 +151,7 @@ class _DictSAXHandler(object):
             self.data = []
 
     def endElement(self, full_name):
+        """endElement"""
         name = self._build_name(full_name)
         if len(self.path) == self.item_depth:
             item = self.item
@@ -152,12 +183,15 @@ class _DictSAXHandler(object):
         self.path.pop()
 
     def characters(self, data):
+        """characters
+        """
         if not self.data:
             self.data = [data]
         else:
             self.data.append(data)
 
     def push_data(self, item, key, data):
+        """push_data"""
         if self.postprocessor is not None:
             result = self.postprocessor(self.path, key, data)
             if result is None:
@@ -187,119 +221,27 @@ class _DictSAXHandler(object):
             return self.force_list(self.path[:-1], key, value)
 
 
-def parse(xml_input, encoding=None, expat=expat, process_namespaces=False,
+def parse(xml_input, encoding=None, expat_use=None, process_namespaces=False,
           namespace_separator=':', disable_entities=True, **kwargs):
     """Parse the given XML input and convert it into a dictionary.
-
-    `xml_input` can either be a `string` or a file-like object.
-
-    If `xml_attribs` is `True`, element attributes are put in the dictionary
-    among regular child elements, using `@` as a prefix to avoid collisions. If
-    set to `False`, they are just ignored.
-
-    Simple example::
-
-        >>> import xmltodict
-        >>> doc = xmltodict.parse(\"\"\"
-        ... <a prop="x">
-        ...   <b>1</b>
-        ...   <b>2</b>
-        ... </a>
-        ... \"\"\")
-        >>> doc['a']['@prop']
-        u'x'
-        >>> doc['a']['b']
-        [u'1', u'2']
-
-    If `item_depth` is `0`, the function returns a dictionary for the root
-    element (default behavior). Otherwise, it calls `item_callback` every time
-    an item at the specified depth is found and returns `None` in the end
-    (streaming mode).
-
-    The callback function receives two parameters: the `path` from the document
-    root to the item (name-attribs pairs), and the `item` (dict). If the
-    callback's return value is false-ish, parsing will be stopped with the
-    :class:`ParsingInterrupted` exception.
-
-    Streaming example::
-
-        >>> def handle(path, item):
-        ...     print('path:%s item:%s' % (path, item))
-        ...     return True
-        ...
-        >>> xmltodict.parse(\"\"\"
-        ... <a prop="x">
-        ...   <b>1</b>
-        ...   <b>2</b>
-        ... </a>\"\"\", item_depth=2, item_callback=handle)
-        path:[(u'a', {u'prop': u'x'}), (u'b', None)] item:1
-        path:[(u'a', {u'prop': u'x'}), (u'b', None)] item:2
-
-    The optional argument `postprocessor` is a function that takes `path`,
-    `key` and `value` as positional arguments and returns a new `(key, value)`
-    pair where both `key` and `value` may have changed. Usage example::
-
-        >>> def postprocessor(path, key, value):
-        ...     try:
-        ...         return key + ':int', int(value)
-        ...     except (ValueError, TypeError):
-        ...         return key, value
-        >>> xmltodict.parse('<a><b>1</b><b>2</b><b>x</b></a>',
-        ...                 postprocessor=postprocessor)
-        OrderedDict([(u'a', OrderedDict([(u'b:int', [1, 2]), (u'b', u'x')]))])
-
-    You can pass an alternate version of `expat` (such as `defusedexpat`) by
-    using the `expat` parameter. E.g:
-
-        >>> import defusedexpat
-        >>> xmltodict.parse('<a>hello</a>', expat=defusedexpat.pyexpat)
-        OrderedDict([(u'a', u'hello')])
-
-    You can use the force_list argument to force lists to be created even
-    when there is only a single child of a given level of hierarchy. The
-    force_list argument is a tuple of keys. If the key for a given level
-    of hierarchy is in the force_list argument, that level of hierarchy
-    will have a list as a child (even if there is only one sub-element).
-    The index_keys operation takes precendence over this. This is applied
-    after any user-supplied postprocessor has already run.
-
-        For example, given this input:
-        <servers>
-          <server>
-            <name>host1</name>
-            <os>Linux</os>
-            <interfaces>
-              <interface>
-                <name>em0</name>
-                <ip_address>10.0.0.1</ip_address>
-              </interface>
-            </interfaces>
-          </server>
-        </servers>
-
-        If called with force_list=('interface',), it will produce
-        this dictionary:
-        {'servers':
-          {'server':
-            {'name': 'host1',
-             'os': 'Linux'},
-             'interfaces':
-              {'interface':
-                [ {'name': 'em0', 'ip_address': '10.0.0.1' } ] } } }
-
-        `force_list` can also be a callable that receives `path`, `key` and
-        `value`. This is helpful in cases where the logic that decides whether
-        a list should be forced is more complex.
+    Args:
+        xml_input(string):can either be a `string` or a file-like object.
+        process_namespaces(bool): xmltodict 默认没有 XML 命名空间处理，但是使用 process_namespaces=True 可以开启命名空间扩展 。
+        namespace_separator(string): 命名空间扩展分割符
     """
+    if expat_use is None:
+        expat_use = expat
     handler = _DictSAXHandler(namespace_separator=namespace_separator,
                               **kwargs)
     if isinstance(xml_input, _unicode):
         if not encoding:
             encoding = 'utf-8'
         xml_input = xml_input.encode(encoding)
+    # 命名空间扩展和命名空间扩展分割符是一起出现的
     if not process_namespaces:
         namespace_separator = None
-    parser = expat.ParserCreate(
+    # 创建解析器
+    parser = expat_use.ParserCreate(
         encoding,
         namespace_separator
     )
@@ -308,6 +250,7 @@ def parse(xml_input, encoding=None, expat=expat, process_namespaces=False,
     except AttributeError:
         # Jython's expat does not support ordered_attributes
         pass
+    # 重写 ContextHandler
     parser.StartNamespaceDeclHandler = handler.startNamespaceDecl
     parser.StartElementHandler = handler.startElement
     parser.EndElementHandler = handler.endElement
@@ -329,6 +272,7 @@ def parse(xml_input, encoding=None, expat=expat, process_namespaces=False,
         parser.ParseFile(xml_input)
     else:
         parser.Parse(xml_input, True)
+
     return handler.item
 
 
@@ -417,7 +361,6 @@ def _emit(key, value, content_handler,
 
 
 def unparse(input_dict, output=None, encoding='utf-8', full_document=True,
-            short_empty_elements=False,
             **kwargs):
     """Emit an XML document for the given `input_dict` (reverse of `parse`).
 
@@ -439,10 +382,8 @@ def unparse(input_dict, output=None, encoding='utf-8', full_document=True,
     if output is None:
         output = StringIO()
         must_return = True
-    if short_empty_elements:
-        content_handler = XMLGenerator(output, encoding, True)
-    else:
-        content_handler = XMLGenerator(output, encoding)
+    # XMLGenerator __init__(self, out=None, encoding='iso-8859-1')
+    content_handler = XMLGenerator(output, encoding)
     if full_document:
         content_handler.startDocument()
     for key, value in input_dict.items():
@@ -473,6 +414,7 @@ if __name__ == '__main__':  # pragma: no cover
   </mydocument>
     '''
     root_info = parse(str(ceshi_xml))
+    print type(root_info)
     print json.dumps(root_info, indent=4)
     print "################################################"
 
